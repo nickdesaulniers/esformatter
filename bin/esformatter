@@ -1,3 +1,38 @@
 #!/usr/bin/env node
+"use strict";
 
-require('../lib/cli.js').parse( process.argv.slice(2) );
+// resolve allow us to load the locally installed esformatter instead of using
+// the global version
+var resolve = require('resolve').sync;
+var path = require('path');
+
+// we grab the argv with local version just to make sure we consider the file
+// and/or config as the basedir
+var argv = process.argv.slice(2);
+var opts = require('../lib/cli.js').parse(argv);
+var basedir = process.cwd();
+
+if (opts.config) {
+  basedir = path.resolve(path.dirname(opts.config));
+} else if (opts._.length) {
+  basedir = path.resolve(path.dirname(opts._[0]));
+}
+
+var localPath;
+try {
+  localPath = resolve('esformatter', { basedir: basedir });
+  localPath = path.resolve(path.dirname(localPath), './cli.js');
+} catch (err) {
+  // fallback to this version instead
+  localPath = '../lib/cli.js';
+}
+
+var cli = require(localPath);
+// until v0.5 the cli module only exposed a single `parse` method, after v0.6
+// we expose 2 methods to allow processing the data before executing the
+// command (all the logic above)
+if ('run' in cli) {
+  cli.run(cli.parse(argv));
+} else {
+  cli.parse(argv);
+}
